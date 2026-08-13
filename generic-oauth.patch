@@ -1,0 +1,1891 @@
+diff --git a/apps/admin/app/(all)/(dashboard)/authentication/oauth/form.tsx b/apps/admin/app/(all)/(dashboard)/authentication/oauth/form.tsx
+new file mode 100644
+index 0000000000..4c44b4578d
+--- /dev/null
++++ b/apps/admin/app/(all)/(dashboard)/authentication/oauth/form.tsx
+@@ -0,0 +1,327 @@
++/**
++ * Copyright (c) 2023-present Plane Software, Inc. and contributors
++ * SPDX-License-Identifier: AGPL-3.0-only
++ * See the LICENSE file for details.
++ */
++
++import { useState } from "react";
++import { isEmpty } from "lodash-es";
++import Link from "next/link";
++import { Controller, useForm } from "react-hook-form";
++// plane internal packages
++import { API_BASE_URL } from "@plane/constants";
++import { Button, getButtonStyling } from "@plane/propel/button";
++import { TOAST_TYPE, setToast } from "@plane/propel/toast";
++import type { IFormattedInstanceConfiguration, TInstanceOauthAuthenticationConfigurationKeys } from "@plane/types";
++import { ToggleSwitch } from "@plane/ui";
++// components
++import { CodeBlock } from "@/components/common/code-block";
++import { ConfirmDiscardModal } from "@/components/common/confirm-discard-modal";
++import type { TControllerInputFormField } from "@/components/common/controller-input";
++import { ControllerInput } from "@/components/common/controller-input";
++import type { TControllerSwitchFormField } from "@/components/common/controller-switch";
++import { ControllerSwitch } from "@/components/common/controller-switch";
++import type { TCopyField } from "@/components/common/copy-field";
++import { CopyField } from "@/components/common/copy-field";
++// hooks
++import { useInstance } from "@/hooks/store";
++
++type Props = {
++  config: IFormattedInstanceConfiguration;
++};
++
++type OauthConfigFormValues = Record<TInstanceOauthAuthenticationConfigurationKeys, string>;
++
++const OAUTH_FORM_SWITCH_FIELD: TControllerSwitchFormField<OauthConfigFormValues> = {
++  name: "ENABLE_OAUTH_SYNC",
++  label: "OAuth",
++};
++
++export function InstanceOauthConfigForm(props: Props) {
++  const { config } = props;
++  // states
++  const [isDiscardChangesModalOpen, setIsDiscardChangesModalOpen] = useState(false);
++  // store hooks
++  const { updateInstanceConfigurations } = useInstance();
++  // form data
++  const {
++    handleSubmit,
++    control,
++    reset,
++    formState: { errors, isDirty, isSubmitting },
++  } = useForm<OauthConfigFormValues>({
++    defaultValues: {
++      OAUTH_PROVIDER_NAME: config["OAUTH_PROVIDER_NAME"] || "OAuth",
++      OAUTH_AUTH_URL: config["OAUTH_AUTH_URL"],
++      OAUTH_TOKEN_URL: config["OAUTH_TOKEN_URL"],
++      OAUTH_USERINFO_URL: config["OAUTH_USERINFO_URL"],
++      OAUTH_SCOPE: config["OAUTH_SCOPE"] || "openid email profile",
++      OAUTH_CLIENT_ID: config["OAUTH_CLIENT_ID"],
++      OAUTH_CLIENT_SECRET: config["OAUTH_CLIENT_SECRET"],
++      OAUTH_ID_FIELD: config["OAUTH_ID_FIELD"] || "sub",
++      OAUTH_EMAIL_FIELD: config["OAUTH_EMAIL_FIELD"] || "email",
++      OAUTH_EMAIL_VERIFIED_FIELD: config["OAUTH_EMAIL_VERIFIED_FIELD"] || "",
++      OAUTH_FIRST_NAME_FIELD: config["OAUTH_FIRST_NAME_FIELD"] || "given_name",
++      OAUTH_LAST_NAME_FIELD: config["OAUTH_LAST_NAME_FIELD"] || "family_name",
++      OAUTH_AVATAR_FIELD: config["OAUTH_AVATAR_FIELD"] || "picture",
++      OAUTH_ENABLE_EMAIL_VERIFICATION: config["OAUTH_ENABLE_EMAIL_VERIFICATION"] || "0",
++      ENABLE_OAUTH_SYNC: config["ENABLE_OAUTH_SYNC"] || "0",
++    },
++  });
++
++  const originURL = !isEmpty(API_BASE_URL) ? API_BASE_URL : typeof window !== "undefined" ? window.location.origin : "";
++
++  const OAUTH_FORM_FIELDS: TControllerInputFormField[] = [
++    {
++      key: "OAUTH_PROVIDER_NAME",
++      type: "text",
++      label: "Provider name",
++      description: (
++        <>
++          The name shown on the sign-in page, e.g. <CodeBlock>Keycloak</CodeBlock> or <CodeBlock>Okta</CodeBlock>.
++        </>
++      ),
++      placeholder: "OAuth",
++      error: Boolean(errors.OAUTH_PROVIDER_NAME),
++      required: true,
++    },
++    {
++      key: "OAUTH_CLIENT_ID",
++      type: "text",
++      label: "Client ID",
++      description: <>The public client ID issued by your OAuth provider.</>,
++      placeholder: "your-client-id",
++      error: Boolean(errors.OAUTH_CLIENT_ID),
++      required: true,
++    },
++    {
++      key: "OAUTH_CLIENT_SECRET",
++      type: "password",
++      label: "Client secret",
++      description: <>The client secret issued by your OAuth provider.</>,
++      placeholder: "your-client-secret",
++      error: Boolean(errors.OAUTH_CLIENT_SECRET),
++      required: true,
++    },
++    {
++      key: "OAUTH_AUTH_URL",
++      type: "text",
++      label: "Authorization URL",
++      description: <>The OAuth 2.0 authorize endpoint of your provider, e.g. the Keycloak authorization endpoint.</>,
++      placeholder: "https://idp.example.com/realms/your-realm/protocol/openid-connect/auth",
++      error: Boolean(errors.OAUTH_AUTH_URL),
++      required: true,
++    },
++    {
++      key: "OAUTH_TOKEN_URL",
++      type: "text",
++      label: "Token URL",
++      description: <>The OAuth 2.0 token endpoint of your provider.</>,
++      placeholder: "https://idp.example.com/realms/your-realm/protocol/openid-connect/token",
++      error: Boolean(errors.OAUTH_TOKEN_URL),
++      required: true,
++    },
++    {
++      key: "OAUTH_USERINFO_URL",
++      type: "text",
++      label: "Userinfo URL",
++      description: <>The endpoint Plane fetches the user profile from using the access token.</>,
++      placeholder: "https://idp.example.com/realms/your-realm/protocol/openid-connect/userinfo",
++      error: Boolean(errors.OAUTH_USERINFO_URL),
++      required: true,
++    },
++    {
++      key: "OAUTH_SCOPE",
++      type: "text",
++      label: "Scope",
++      description: (
++        <>Space-separated OAuth scopes requested during sign in. Leave default for OpenID Connect providers.</>
++      ),
++      placeholder: "openid email profile",
++      error: Boolean(errors.OAUTH_SCOPE),
++      required: false,
++    },
++    {
++      key: "OAUTH_ID_FIELD",
++      type: "text",
++      label: "ID field",
++      description: <>The userinfo JSON field holding the unique user identifier. Dotted paths are supported.</>,
++      placeholder: "sub",
++      error: Boolean(errors.OAUTH_ID_FIELD),
++      required: true,
++    },
++    {
++      key: "OAUTH_EMAIL_FIELD",
++      type: "text",
++      label: "Email field",
++      description: <>The userinfo JSON field holding the user's email address.</>,
++      placeholder: "email",
++      error: Boolean(errors.OAUTH_EMAIL_FIELD),
++      required: true,
++    },
++    {
++      key: "OAUTH_EMAIL_VERIFIED_FIELD",
++      type: "text",
++      label: "Email verified field",
++      description: (
++        <>
++          The userinfo JSON field holding the email-verified flag. Leave empty if your provider does not expose one.
++        </>
++      ),
++      placeholder: "email_verified",
++      error: Boolean(errors.OAUTH_EMAIL_VERIFIED_FIELD),
++      required: false,
++    },
++    {
++      key: "OAUTH_FIRST_NAME_FIELD",
++      type: "text",
++      label: "First name field",
++      description: <>The userinfo JSON field holding the user's first name.</>,
++      placeholder: "given_name",
++      error: Boolean(errors.OAUTH_FIRST_NAME_FIELD),
++      required: true,
++    },
++    {
++      key: "OAUTH_LAST_NAME_FIELD",
++      type: "text",
++      label: "Last name field",
++      description: <>The userinfo JSON field holding the user's last name.</>,
++      placeholder: "family_name",
++      error: Boolean(errors.OAUTH_LAST_NAME_FIELD),
++      required: true,
++    },
++    {
++      key: "OAUTH_AVATAR_FIELD",
++      type: "text",
++      label: "Avatar field",
++      description: <>The userinfo JSON field holding the user's avatar URL.</>,
++      placeholder: "picture",
++      error: Boolean(errors.OAUTH_AVATAR_FIELD),
++      required: false,
++    },
++  ];
++
++  const OAUTH_SERVICE_FIELD: TCopyField[] = [
++    {
++      key: "Callback_URL",
++      label: "Callback URL",
++      url: `${originURL}/auth/oauth/callback/`,
++      description: (
++        <>
++          We will auto-generate this. Paste this into the <CodeBlock darkerShade>Redirect URI</CodeBlock> field of
++          your OAuth application.
++        </>
++      ),
++    },
++  ];
++
++  const onSubmit = async (formData: OauthConfigFormValues) => {
++    const payload: Partial<OauthConfigFormValues> = { ...formData };
++
++    try {
++      const response = await updateInstanceConfigurations(payload);
++      setToast({
++        type: TOAST_TYPE.SUCCESS,
++        title: "Done!",
++        message: "Your OAuth authentication is configured. You should test it now.",
++      });
++      const fieldKeys: TInstanceOauthAuthenticationConfigurationKeys[] = [
++        "OAUTH_PROVIDER_NAME",
++        "OAUTH_AUTH_URL",
++        "OAUTH_TOKEN_URL",
++        "OAUTH_USERINFO_URL",
++        "OAUTH_SCOPE",
++        "OAUTH_CLIENT_ID",
++        "OAUTH_CLIENT_SECRET",
++        "OAUTH_ID_FIELD",
++        "OAUTH_EMAIL_FIELD",
++        "OAUTH_EMAIL_VERIFIED_FIELD",
++        "OAUTH_FIRST_NAME_FIELD",
++        "OAUTH_LAST_NAME_FIELD",
++        "OAUTH_AVATAR_FIELD",
++        "OAUTH_ENABLE_EMAIL_VERIFICATION",
++        "ENABLE_OAUTH_SYNC",
++      ];
++      const nextValues = Object.fromEntries(
++        fieldKeys.map((key) => [key, response.find((item) => item.key === key)?.value ?? ""])
++      ) as OauthConfigFormValues;
++      reset(nextValues);
++    } catch (err) {
++      console.error(err);
++    }
++  };
++
++  const handleGoBack = (e: React.MouseEvent<HTMLAnchorElement, MouseEvent>) => {
++    if (isDirty) {
++      e.preventDefault();
++      setIsDiscardChangesModalOpen(true);
++    }
++  };
++
++  return (
++    <>
++      <ConfirmDiscardModal
++        isOpen={isDiscardChangesModalOpen}
++        onDiscardHref="/authentication"
++        handleClose={() => setIsDiscardChangesModalOpen(false)}
++      />
++      <div className="flex flex-col gap-8">
++        <div className="grid w-full grid-cols-2 gap-x-12 gap-y-8">
++          <div className="col-span-2 flex flex-col gap-y-4 pt-1 md:col-span-1">
++            <div className="pt-2.5 text-18 font-medium">OAuth-provided details for Plane</div>
++            {OAUTH_FORM_FIELDS.map((field) => (
++              <ControllerInput
++                key={field.key}
++                control={control}
++                type={field.type}
++                name={field.key}
++                label={field.label}
++                description={field.description}
++                placeholder={field.placeholder}
++                error={field.error}
++                required={field.required}
++              />
++            ))}
++            <div className="flex items-center justify-between gap-1">
++              <h4 className="text-sm text-custom-text-300">Require a verified email before sign in</h4>
++              <Controller
++                control={control}
++                name="OAUTH_ENABLE_EMAIL_VERIFICATION"
++                render={({ field: { value, onChange } }) => {
++                  const parsedValue = Number.parseInt(typeof value === "string" ? value : String(value ?? "0"), 10);
++                  const isOn = !Number.isNaN(parsedValue) && parsedValue !== 0;
++                  return <ToggleSwitch value={isOn} onChange={() => onChange(isOn ? "0" : "1")} size="sm" />;
++                }}
++              />
++            </div>
++            <ControllerSwitch control={control} field={OAUTH_FORM_SWITCH_FIELD} />
++            <div className="flex flex-col gap-1 pt-4">
++              <div className="flex items-center gap-4">
++                <Button
++                  variant="primary"
++                  size="lg"
++                  onClick={(e) => void handleSubmit(onSubmit)(e)}
++                  loading={isSubmitting}
++                  disabled={!isDirty}
++                >
++                  {isSubmitting ? "Saving" : "Save changes"}
++                </Button>
++                <Link href="/authentication" className={getButtonStyling("secondary", "lg")} onClick={handleGoBack}>
++                  Go back
++                </Link>
++              </div>
++            </div>
++          </div>
++          <div className="col-span-2 md:col-span-1">
++            <div className="flex flex-col gap-y-4 rounded-lg bg-layer-3 px-6 pt-1.5 pb-4">
++              <div className="pt-2 text-18 font-medium">Plane-provided details for your OAuth provider</div>
++              {OAUTH_SERVICE_FIELD.map((field) => (
++                <CopyField key={field.key} label={field.label} url={field.url} description={field.description} />
++              ))}
++            </div>
++          </div>
++        </div>
++      </div>
++    </>
++  );
++}
+\ No newline at end of file
+diff --git a/apps/admin/app/(all)/(dashboard)/authentication/oauth/page.tsx b/apps/admin/app/(all)/(dashboard)/authentication/oauth/page.tsx
+new file mode 100644
+index 0000000000..d89992f29d
+--- /dev/null
++++ b/apps/admin/app/(all)/(dashboard)/authentication/oauth/page.tsx
+@@ -0,0 +1,105 @@
++/**
++ * Copyright (c) 2023-present Plane Software, Inc. and contributors
++ * SPDX-License-Identifier: AGPL-3.0-only
++ * See the LICENSE file for details.
++ */
++
++import { useState } from "react";
++import { observer } from "mobx-react";
++import useSWR from "swr";
++// plane internal packages
++import { setPromiseToast } from "@plane/propel/toast";
++import { Loader, ToggleSwitch } from "@plane/ui";
++// icons
++import { KeyRound } from "lucide-react";
++// components
++import { AuthenticationMethodCard } from "@/components/authentication/authentication-method-card";
++import { PageWrapper } from "@/components/common/page-wrapper";
++// hooks
++import { useInstance } from "@/hooks/store";
++// types
++import type { Route } from "./+types/page";
++// local
++import { InstanceOauthConfigForm } from "./form";
++
++const InstanceOauthAuthenticationPage = observer(function InstanceOauthAuthenticationPage() {
++  // store
++  const { fetchInstanceConfigurations, formattedConfig, updateInstanceConfigurations } = useInstance();
++  // state
++  const [isSubmitting, setIsSubmitting] = useState<boolean>(false);
++  // config
++  const enableOauthConfig = formattedConfig?.IS_OAUTH_ENABLED ?? "";
++  useSWR("INSTANCE_CONFIGURATIONS", () => fetchInstanceConfigurations());
++
++  const updateConfig = async (key: "IS_OAUTH_ENABLED", value: string) => {
++    setIsSubmitting(true);
++
++    const payload = {
++      [key]: value,
++    };
++
++    const updateConfigPromise = updateInstanceConfigurations(payload);
++
++    setPromiseToast(updateConfigPromise, {
++      loading: "Saving Configuration",
++      success: {
++        title: "Configuration saved",
++        message: () => `OAuth authentication is now ${value === "1" ? "active" : "disabled"}.`,
++      },
++      error: {
++        title: "Error",
++        message: () => "Failed to save configuration",
++      },
++    });
++
++    await updateConfigPromise
++      .then(() => {
++        setIsSubmitting(false);
++      })
++      .catch((err) => {
++        console.error(err);
++        setIsSubmitting(false);
++      });
++  };
++
++  const isOauthEnabled = enableOauthConfig === "1";
++
++  return (
++    <PageWrapper
++      customHeader={
++        <AuthenticationMethodCard
++          name="OAuth"
++          description="Allow members to log in or sign up to plane with any OAuth 2.0 provider."
++          icon={<KeyRound className="h-6 w-6 p-0.5 text-tertiary" />}
++          config={
++            <ToggleSwitch
++              value={isOauthEnabled}
++              onChange={() => {
++                updateConfig("IS_OAUTH_ENABLED", isOauthEnabled ? "0" : "1");
++              }}
++              size="sm"
++              disabled={isSubmitting || !formattedConfig}
++            />
++          }
++          disabled={isSubmitting || !formattedConfig}
++          withBorder={false}
++        />
++      }
++    >
++      {formattedConfig ? (
++        <InstanceOauthConfigForm config={formattedConfig} />
++      ) : (
++        <Loader className="space-y-8">
++          <Loader.Item height="50px" width="25%" />
++          <Loader.Item height="50px" />
++          <Loader.Item height="50px" />
++          <Loader.Item height="50px" />
++          <Loader.Item height="50px" width="50%" />
++        </Loader>
++      )}
++    </PageWrapper>
++  );
++});
++export const meta: Route.MetaFunction = () => [{ title: "OAuth Authentication - God Mode" }];
++
++export default InstanceOauthAuthenticationPage;
+\ No newline at end of file
+diff --git a/apps/admin/app/routes.ts b/apps/admin/app/routes.ts
+index 184bed205a..5736bea5c0 100644
+--- a/apps/admin/app/routes.ts
++++ b/apps/admin/app/routes.ts
+@@ -19,6 +19,7 @@ export default [
+     route("authentication/gitlab", "./(all)/(dashboard)/authentication/gitlab/page.tsx"),
+     route("authentication/google", "./(all)/(dashboard)/authentication/google/page.tsx"),
+     route("authentication/gitea", "./(all)/(dashboard)/authentication/gitea/page.tsx"),
++    route("authentication/oauth", "./(all)/(dashboard)/authentication/oauth/page.tsx"),
+     route("ai", "./(all)/(dashboard)/ai/page.tsx"),
+     route("image", "./(all)/(dashboard)/image/page.tsx"),
+   ]),
+diff --git a/apps/admin/components/authentication/oauth-config.tsx b/apps/admin/components/authentication/oauth-config.tsx
+new file mode 100644
+index 0000000000..e8754f8792
+--- /dev/null
++++ b/apps/admin/components/authentication/oauth-config.tsx
+@@ -0,0 +1,62 @@
++/**
++ * Copyright (c) 2023-present Plane Software, Inc. and contributors
++ * SPDX-License-Identifier: AGPL-3.0-only
++ * See the LICENSE file for details.
++ */
++
++import { observer } from "mobx-react";
++import Link from "next/link";
++// icons
++import { Settings2 } from "lucide-react";
++// plane internal packages
++import { getButtonStyling } from "@plane/propel/button";
++import type { TInstanceAuthenticationMethodKeys } from "@plane/types";
++import { ToggleSwitch } from "@plane/ui";
++import { cn } from "@plane/utils";
++// hooks
++import { useInstance } from "@/hooks/store";
++
++type Props = {
++  disabled: boolean;
++  updateConfig: (key: TInstanceAuthenticationMethodKeys, value: string) => void;
++};
++
++export const OauthConfiguration = observer(function OauthConfiguration(props: Props) {
++  const { disabled, updateConfig } = props;
++  // store
++  const { formattedConfig } = useInstance();
++  // derived values
++  const enableOauthConfig = formattedConfig?.IS_OAUTH_ENABLED ?? "";
++  const isOauthConfigured =
++    !!formattedConfig?.OAUTH_CLIENT_ID &&
++    !!formattedConfig?.OAUTH_CLIENT_SECRET &&
++    !!formattedConfig?.OAUTH_AUTH_URL &&
++    !!formattedConfig?.OAUTH_TOKEN_URL &&
++    !!formattedConfig?.OAUTH_USERINFO_URL;
++
++  return (
++    <>
++      {isOauthConfigured ? (
++        <div className="flex items-center gap-4">
++          <Link href="/authentication/oauth" className={cn(getButtonStyling("link", "base"), "font-medium")}>
++            Edit
++          </Link>
++          <ToggleSwitch
++            value={Boolean(parseInt(enableOauthConfig))}
++            onChange={() => {
++              const newEnableOauthConfig = Boolean(parseInt(enableOauthConfig)) === true ? "0" : "1";
++              updateConfig("IS_OAUTH_ENABLED", newEnableOauthConfig);
++            }}
++            size="sm"
++            disabled={disabled}
++          />
++        </div>
++      ) : (
++        <Link href="/authentication/oauth" className={cn(getButtonStyling("secondary", "base"), "text-tertiary")}>
++          <Settings2 className="h-4 w-4 p-0.5 text-tertiary" />
++          Configure
++        </Link>
++      )}
++    </>
++  );
++});
+\ No newline at end of file
+diff --git a/apps/admin/components/common/header/core.ts b/apps/admin/components/common/header/core.ts
+index 4cfc8ee718..d0273c94d3 100644
+--- a/apps/admin/components/common/header/core.ts
++++ b/apps/admin/components/common/header/core.ts
+@@ -14,6 +14,7 @@ export const CORE_HEADER_SEGMENT_LABELS: Record<string, string> = {
+   github: "GitHub",
+   gitlab: "GitLab",
+   gitea: "Gitea",
++  oauth: "OAuth",
+   workspace: "Workspace",
+   create: "Create",
+ };
+diff --git a/apps/admin/hooks/oauth/core.tsx b/apps/admin/hooks/oauth/core.tsx
+index 9e6914e41c..101804cf2f 100644
+--- a/apps/admin/hooks/oauth/core.tsx
++++ b/apps/admin/hooks/oauth/core.tsx
+@@ -23,6 +23,7 @@ import { GiteaConfiguration } from "@/components/authentication/gitea-config";
+ import { GithubConfiguration } from "@/components/authentication/github-config";
+ import { GitlabConfiguration } from "@/components/authentication/gitlab-config";
+ import { GoogleConfiguration } from "@/components/authentication/google-config";
++import { OauthConfiguration } from "@/components/authentication/oauth-config";
+ import { PasswordLoginConfiguration } from "@/components/authentication/password-config-switch";
+ 
+ // Authentication methods
+@@ -89,4 +90,12 @@ export const getCoreAuthenticationModesMap: (
+     config: <GiteaConfiguration disabled={disabled} updateConfig={updateConfig} />,
+     enabledConfigKey: "IS_GITEA_ENABLED",
+   },
++  oauth: {
++    key: "oauth",
++    name: "OAuth",
++    description: "Allow members to log in or sign up to plane with any OAuth 2.0 provider.",
++    icon: <KeyRound className="h-6 w-6 p-0.5 text-tertiary" />,
++    config: <OauthConfiguration disabled={disabled} updateConfig={updateConfig} />,
++    enabledConfigKey: "IS_OAUTH_ENABLED",
++  },
+ });
+diff --git a/apps/admin/hooks/oauth/index.ts b/apps/admin/hooks/oauth/index.ts
+index 74c11e33fc..96a9636526 100644
+--- a/apps/admin/hooks/oauth/index.ts
++++ b/apps/admin/hooks/oauth/index.ts
+@@ -19,6 +19,7 @@ export const useAuthenticationModes = (props: TGetAuthenticationModeProps): TIns
+     authenticationModes["github"],
+     authenticationModes["gitlab"],
+     authenticationModes["gitea"],
++    authenticationModes["oauth"],
+   ];
+ 
+   return availableAuthenticationModes;
+diff --git a/apps/api/plane/authentication/adapter/base.py b/apps/api/plane/authentication/adapter/base.py
+index 3a616a21c3..2d4369291e 100644
+--- a/apps/api/plane/authentication/adapter/base.py
++++ b/apps/api/plane/authentication/adapter/base.py
+@@ -129,6 +129,7 @@ class Adapter:
+             "github": "ENABLE_GITHUB_SYNC",
+             "gitlab": "ENABLE_GITLAB_SYNC",
+             "gitea": "ENABLE_GITEA_SYNC",
++            "oauth": "ENABLE_OAUTH_SYNC",
+         }
+         config_key = provider_config_map.get(self.provider)
+         if config_key:
+diff --git a/apps/api/plane/authentication/adapter/error.py b/apps/api/plane/authentication/adapter/error.py
+index 6d78931102..90794a2f25 100644
+--- a/apps/api/plane/authentication/adapter/error.py
++++ b/apps/api/plane/authentication/adapter/error.py
+@@ -50,6 +50,7 @@ AUTHENTICATION_ERROR_CODES = {
+     "GITLAB_OAUTH_PROVIDER_ERROR": 5121,
+     "GITEA_OAUTH_PROVIDER_ERROR": 5123,
+     "OAUTH_PROVIDER_UNVERIFIED_EMAIL": 5124,
++    "OAUTH_PROVIDER_ERROR": 5129,
+     # Reset Password
+     "INVALID_PASSWORD_TOKEN": 5125,
+     "EXPIRED_PASSWORD_TOKEN": 5130,
+diff --git a/apps/api/plane/authentication/adapter/oauth.py b/apps/api/plane/authentication/adapter/oauth.py
+index afb1a31325..cc725016d9 100644
+--- a/apps/api/plane/authentication/adapter/oauth.py
++++ b/apps/api/plane/authentication/adapter/oauth.py
+@@ -55,6 +55,8 @@ class OauthAdapter(Adapter):
+             return "GITLAB_OAUTH_PROVIDER_ERROR"
+         elif self.provider == "gitea":
+             return "GITEA_OAUTH_PROVIDER_ERROR"
++        elif self.provider == "oauth":
++            return "OAUTH_PROVIDER_ERROR"
+         else:
+             return "OAUTH_NOT_CONFIGURED"
+ 
+diff --git a/apps/api/plane/authentication/provider/oauth/oauth.py b/apps/api/plane/authentication/provider/oauth/oauth.py
+new file mode 100644
+index 0000000000..e0b60697c6
+--- /dev/null
++++ b/apps/api/plane/authentication/provider/oauth/oauth.py
+@@ -0,0 +1,225 @@
++# Copyright (c) 2023-present Plane Software, Inc. and contributors
++# SPDX-License-Identifier: AGPL-3.0-only
++# See the LICENSE file for details.
++
++# Python imports
++import os
++from datetime import datetime, timedelta
++from urllib.parse import urlencode
++
++import pytz
++
++# Module imports
++from plane.authentication.adapter.error import (
++    AuthenticationException,
++    AUTHENTICATION_ERROR_CODES,
++)
++from plane.authentication.adapter.oauth import OauthAdapter
++from plane.license.utils.instance_value import get_configuration_value
++
++
++def get_nested_value(data, path):
++    """Resolve a dotted path (e.g. "user.email") from a JSON object."""
++    if not path:
++        return None
++    current = data
++    for key in str(path).split("."):
++        if not isinstance(current, dict) or key not in current:
++            return None
++        current = current[key]
++    return current
++
++
++class GenericOAuthProvider(OauthAdapter):
++    provider = "oauth"
++
++    def __init__(self, request, code=None, state=None, callback=None):
++        (
++            OAUTH_CLIENT_ID,
++            OAUTH_CLIENT_SECRET,
++            OAUTH_AUTH_URL,
++            OAUTH_TOKEN_URL,
++            OAUTH_USERINFO_URL,
++            OAUTH_SCOPE,
++            OAUTH_PROVIDER_NAME,
++            OAUTH_ID_FIELD,
++            OAUTH_EMAIL_FIELD,
++            OAUTH_EMAIL_VERIFIED_FIELD,
++            OAUTH_FIRST_NAME_FIELD,
++            OAUTH_LAST_NAME_FIELD,
++            OAUTH_AVATAR_FIELD,
++            OAUTH_ENABLE_EMAIL_VERIFICATION,
++        ) = get_configuration_value(
++            [
++                {
++                    "key": "OAUTH_CLIENT_ID",
++                    "default": os.environ.get("OAUTH_CLIENT_ID"),
++                },
++                {
++                    "key": "OAUTH_CLIENT_SECRET",
++                    "default": os.environ.get("OAUTH_CLIENT_SECRET"),
++                },
++                {
++                    "key": "OAUTH_AUTH_URL",
++                    "default": os.environ.get("OAUTH_AUTH_URL"),
++                },
++                {
++                    "key": "OAUTH_TOKEN_URL",
++                    "default": os.environ.get("OAUTH_TOKEN_URL"),
++                },
++                {
++                    "key": "OAUTH_USERINFO_URL",
++                    "default": os.environ.get("OAUTH_USERINFO_URL"),
++                },
++                {
++                    "key": "OAUTH_SCOPE",
++                    "default": os.environ.get("OAUTH_SCOPE", "openid email profile"),
++                },
++                {
++                    "key": "OAUTH_PROVIDER_NAME",
++                    "default": os.environ.get("OAUTH_PROVIDER_NAME", "OAuth"),
++                },
++                {
++                    "key": "OAUTH_ID_FIELD",
++                    "default": os.environ.get("OAUTH_ID_FIELD", "sub"),
++                },
++                {
++                    "key": "OAUTH_EMAIL_FIELD",
++                    "default": os.environ.get("OAUTH_EMAIL_FIELD", "email"),
++                },
++                {
++                    "key": "OAUTH_EMAIL_VERIFIED_FIELD",
++                    "default": os.environ.get("OAUTH_EMAIL_VERIFIED_FIELD", ""),
++                },
++                {
++                    "key": "OAUTH_FIRST_NAME_FIELD",
++                    "default": os.environ.get("OAUTH_FIRST_NAME_FIELD", "given_name"),
++                },
++                {
++                    "key": "OAUTH_LAST_NAME_FIELD",
++                    "default": os.environ.get("OAUTH_LAST_NAME_FIELD", "family_name"),
++                },
++                {
++                    "key": "OAUTH_AVATAR_FIELD",
++                    "default": os.environ.get("OAUTH_AVATAR_FIELD", "picture"),
++                },
++                {
++                    "key": "OAUTH_ENABLE_EMAIL_VERIFICATION",
++                    "default": os.environ.get("OAUTH_ENABLE_EMAIL_VERIFICATION", "0"),
++                },
++            ]
++        )
++
++        if not (OAUTH_CLIENT_ID and OAUTH_CLIENT_SECRET and OAUTH_AUTH_URL and OAUTH_TOKEN_URL and OAUTH_USERINFO_URL):
++            raise AuthenticationException(
++                error_code=AUTHENTICATION_ERROR_CODES["OAUTH_NOT_CONFIGURED"],
++                error_message="OAUTH_NOT_CONFIGURED",
++            )
++
++        self.provider_name = OAUTH_PROVIDER_NAME or "OAuth"
++        self.id_field = OAUTH_ID_FIELD or "sub"
++        self.email_field = OAUTH_EMAIL_FIELD or "email"
++        self.email_verified_field = OAUTH_EMAIL_VERIFIED_FIELD
++        self.first_name_field = OAUTH_FIRST_NAME_FIELD or "given_name"
++        self.last_name_field = OAUTH_LAST_NAME_FIELD or "family_name"
++        self.avatar_field = OAUTH_AVATAR_FIELD or "picture"
++        self.enable_email_verification = OAUTH_ENABLE_EMAIL_VERIFICATION == "1"
++
++        self.scope = OAUTH_SCOPE or "openid email profile"
++        self.token_url = OAUTH_TOKEN_URL
++        self.userinfo_url = OAUTH_USERINFO_URL
++
++        redirect_uri = f"""{"https" if request.is_secure() else "http"}://{request.get_host()}/auth/oauth/callback/"""
++        url_params = {
++            "client_id": OAUTH_CLIENT_ID,
++            "redirect_uri": redirect_uri,
++            "response_type": "code",
++            "scope": self.scope,
++            "state": state,
++        }
++        # Preserve any pre-existing query string on the authorize endpoint
++        separator = "&" if "?" in OAUTH_AUTH_URL else "?"
++        auth_url = f"{OAUTH_AUTH_URL}{separator}{urlencode(url_params)}"
++        super().__init__(
++            request,
++            self.provider,
++            OAUTH_CLIENT_ID,
++            self.scope,
++            redirect_uri,
++            auth_url,
++            self.token_url,
++            self.userinfo_url,
++            OAUTH_CLIENT_SECRET,
++            code,
++            callback=callback,
++        )
++
++    def set_token_data(self):
++        data = {
++            "client_id": self.client_id,
++            "client_secret": self.client_secret,
++            "code": self.code,
++            "redirect_uri": self.redirect_uri,
++            "grant_type": "authorization_code",
++        }
++        token_response = self.get_user_token(data=data, headers={"Accept": "application/json"})
++        super().set_token_data(
++            {
++                "access_token": token_response.get("access_token"),
++                "refresh_token": token_response.get("refresh_token", None),
++                "access_token_expired_at": (
++                    datetime.now(tz=pytz.utc) + timedelta(seconds=token_response.get("expires_in"))
++                    if token_response.get("expires_in")
++                    else None
++                ),
++                "refresh_token_expired_at": (
++                    datetime.fromtimestamp(token_response.get("refresh_token_expired_at"), tz=pytz.utc)
++                    if token_response.get("refresh_token_expired_at")
++                    else None
++                ),
++                "id_token": token_response.get("id_token", ""),
++            }
++        )
++
++    def set_user_data(self):
++        user_info_response = self.get_user_response()
++
++        email = get_nested_value(user_info_response, self.email_field)
++        if not email:
++            raise AuthenticationException(
++                error_code=AUTHENTICATION_ERROR_CODES["INVALID_EMAIL"],
++                error_message="INVALID_EMAIL",
++            )
++
++        # Optionally enforce verified emails. When enabled, the verified flag from
++        # the userinfo payload must be truthy, otherwise the login is rejected —
++        # mirrors the verified-email enforcement of the provider-specific adapters
++        # (GHSA-7j95-vh8g-f365).
++        if self.enable_email_verification and self.email_verified_field:
++            verified = get_nested_value(user_info_response, self.email_verified_field)
++            if not verified or str(verified).lower() not in ("true", "1", "yes", "y"):
++                raise AuthenticationException(
++                    error_code=AUTHENTICATION_ERROR_CODES["OAUTH_PROVIDER_UNVERIFIED_EMAIL"],
++                    error_message="OAUTH_PROVIDER_UNVERIFIED_EMAIL",
++                )
++
++        provider_id = get_nested_value(user_info_response, self.id_field)
++        if provider_id is None:
++            raise AuthenticationException(
++                error_code=AUTHENTICATION_ERROR_CODES["OAUTH_PROVIDER_ERROR"],
++                error_message="OAUTH_PROVIDER_ERROR",
++            )
++
++        super().set_user_data(
++            {
++                "email": email,
++                "user": {
++                    "provider_id": str(provider_id),
++                    "email": email,
++                    "avatar": get_nested_value(user_info_response, self.avatar_field),
++                    "first_name": get_nested_value(user_info_response, self.first_name_field),
++                    "last_name": get_nested_value(user_info_response, self.last_name_field),
++                    "is_password_autoset": True,
++                },
++            }
++        )
+diff --git a/apps/api/plane/authentication/urls.py b/apps/api/plane/authentication/urls.py
+index 4bec07db00..caa635ed97 100644
+--- a/apps/api/plane/authentication/urls.py
++++ b/apps/api/plane/authentication/urls.py
+@@ -44,6 +44,10 @@ from .views import (
+     GiteaOauthInitiateEndpoint,
+     GiteaCallbackSpaceEndpoint,
+     GiteaOauthInitiateSpaceEndpoint,
++    GenericOauthCallbackEndpoint,
++    GenericOauthInitiateEndpoint,
++    GenericOauthCallbackSpaceEndpoint,
++    GenericOauthInitiateSpaceEndpoint,
+ )
+ 
+ urlpatterns = [
+@@ -150,4 +154,17 @@ urlpatterns = [
+         GiteaCallbackSpaceEndpoint.as_view(),
+         name="space-gitea-callback",
+     ),
++    ## Generic Oauth
++    path("oauth/", GenericOauthInitiateEndpoint.as_view(), name="oauth-initiate"),
++    path("oauth/callback/", GenericOauthCallbackEndpoint.as_view(), name="oauth-callback"),
++    path(
++        "spaces/oauth/",
++        GenericOauthInitiateSpaceEndpoint.as_view(),
++        name="space-oauth-initiate",
++    ),
++    path(
++        "spaces/oauth/callback/",
++        GenericOauthCallbackSpaceEndpoint.as_view(),
++        name="space-oauth-callback",
++    ),
+ ]
+diff --git a/apps/api/plane/authentication/views/__init__.py b/apps/api/plane/authentication/views/__init__.py
+index a9c816ae9e..a6ac549c29 100644
+--- a/apps/api/plane/authentication/views/__init__.py
++++ b/apps/api/plane/authentication/views/__init__.py
+@@ -11,6 +11,7 @@ from .app.github import GitHubCallbackEndpoint, GitHubOauthInitiateEndpoint
+ from .app.gitlab import GitLabCallbackEndpoint, GitLabOauthInitiateEndpoint
+ from .app.gitea import GiteaCallbackEndpoint, GiteaOauthInitiateEndpoint
+ from .app.google import GoogleCallbackEndpoint, GoogleOauthInitiateEndpoint
++from .app.oauth import GenericOauthCallbackEndpoint, GenericOauthInitiateEndpoint
+ from .app.magic import MagicGenerateEndpoint, MagicSignInEndpoint, MagicSignUpEndpoint
+ 
+ from .app.signout import SignOutAuthEndpoint
+@@ -26,6 +27,8 @@ from .space.gitea import GiteaCallbackSpaceEndpoint, GiteaOauthInitiateSpaceEndp
+ 
+ from .space.google import GoogleCallbackSpaceEndpoint, GoogleOauthInitiateSpaceEndpoint
+ 
++from .space.oauth import GenericOauthCallbackSpaceEndpoint, GenericOauthInitiateSpaceEndpoint
++
+ from .space.magic import (
+     MagicGenerateSpaceEndpoint,
+     MagicSignInSpaceEndpoint,
+diff --git a/apps/api/plane/authentication/views/app/oauth.py b/apps/api/plane/authentication/views/app/oauth.py
+new file mode 100644
+index 0000000000..37b78e8b77
+--- /dev/null
++++ b/apps/api/plane/authentication/views/app/oauth.py
+@@ -0,0 +1,106 @@
++# Copyright (c) 2023-present Plane Software, Inc. and contributors
++# SPDX-License-Identifier: AGPL-3.0-only
++# See the LICENSE file for details.
++
++# Python imports
++import uuid
++
++# Django import
++from django.http import HttpResponseRedirect
++from django.views import View
++
++# Module imports
++from plane.authentication.adapter.error import (
++    AuthenticationException,
++    AUTHENTICATION_ERROR_CODES,
++)
++from plane.authentication.provider.oauth.oauth import GenericOAuthProvider
++from plane.authentication.utils.host import base_host
++from plane.authentication.utils.login import user_login
++from plane.authentication.utils.redirection_path import get_redirection_path
++from plane.authentication.utils.user_auth_workflow import post_user_auth_workflow
++from plane.license.models import Instance
++from plane.utils.path_validator import get_safe_redirect_url, validate_next_path
++
++
++class GenericOauthInitiateEndpoint(View):
++    def get(self, request):
++        # Get host and next path
++        request.session["host"] = base_host(request=request, is_app=True)
++        next_path = request.GET.get("next_path")
++        if next_path:
++            request.session["next_path"] = str(validate_next_path(next_path))
++
++        # Check instance configuration
++        instance = Instance.objects.first()
++        if instance is None or not instance.is_setup_done:
++            exc = AuthenticationException(
++                error_code=AUTHENTICATION_ERROR_CODES["INSTANCE_NOT_CONFIGURED"],
++                error_message="INSTANCE_NOT_CONFIGURED",
++            )
++            params = exc.get_error_dict()
++            url = get_safe_redirect_url(
++                base_url=base_host(request=request, is_app=True), next_path=next_path, params=params
++            )
++            return HttpResponseRedirect(url)
++        try:
++            state = uuid.uuid4().hex
++            provider = GenericOAuthProvider(request=request, state=state)
++            request.session["state"] = state
++            auth_url = provider.get_auth_url()
++            return HttpResponseRedirect(auth_url)
++        except AuthenticationException as e:
++            params = e.get_error_dict()
++            url = get_safe_redirect_url(
++                base_url=base_host(request=request, is_app=True), next_path=next_path, params=params
++            )
++            return HttpResponseRedirect(url)
++
++
++class GenericOauthCallbackEndpoint(View):
++    def get(self, request):
++        code = request.GET.get("code")
++        state = request.GET.get("state")
++        next_path = request.session.get("next_path")
++
++        if state != request.session.get("state", ""):
++            exc = AuthenticationException(
++                error_code=AUTHENTICATION_ERROR_CODES["OAUTH_PROVIDER_ERROR"],
++                error_message="OAUTH_PROVIDER_ERROR",
++            )
++            params = exc.get_error_dict()
++            url = get_safe_redirect_url(
++                base_url=base_host(request=request, is_app=True), next_path=next_path, params=params
++            )
++            return HttpResponseRedirect(url)
++
++        if not code:
++            exc = AuthenticationException(
++                error_code=AUTHENTICATION_ERROR_CODES["OAUTH_PROVIDER_ERROR"],
++                error_message="OAUTH_PROVIDER_ERROR",
++            )
++            params = exc.get_error_dict()
++            url = get_safe_redirect_url(
++                base_url=base_host(request=request, is_app=True), next_path=next_path, params=params
++            )
++            return HttpResponseRedirect(url)
++
++        try:
++            provider = GenericOAuthProvider(request=request, code=code, callback=post_user_auth_workflow)
++            user = provider.authenticate()
++            # Login the user and record his device info
++            user_login(request=request, user=user, is_app=True)
++            # Get the redirection path
++            if next_path:
++                path = str(validate_next_path(next_path))
++            else:
++                path = get_redirection_path(user=user)
++            # redirect to referer path
++            url = get_safe_redirect_url(base_url=base_host(request=request, is_app=True), next_path=path, params={})
++            return HttpResponseRedirect(url)
++        except AuthenticationException as e:
++            params = e.get_error_dict()
++            url = get_safe_redirect_url(
++                base_url=base_host(request=request, is_app=True), next_path=next_path, params=params
++            )
++            return HttpResponseRedirect(url)
+diff --git a/apps/api/plane/authentication/views/space/oauth.py b/apps/api/plane/authentication/views/space/oauth.py
+new file mode 100644
+index 0000000000..39102184c7
+--- /dev/null
++++ b/apps/api/plane/authentication/views/space/oauth.py
+@@ -0,0 +1,106 @@
++# Copyright (c) 2023-present Plane Software, Inc. and contributors
++# SPDX-License-Identifier: AGPL-3.0-only
++# See the LICENSE file for details.
++
++# Python imports
++import uuid
++
++# Django import
++from django.http import HttpResponseRedirect
++from django.utils.http import url_has_allowed_host_and_scheme
++from django.views import View
++
++# Module imports
++from plane.authentication.adapter.error import (
++    AuthenticationException,
++    AUTHENTICATION_ERROR_CODES,
++)
++from plane.authentication.provider.oauth.oauth import GenericOAuthProvider
++from plane.authentication.utils.host import base_host
++from plane.authentication.utils.login import user_login
++from plane.license.models import Instance
++from plane.utils.path_validator import get_allowed_hosts, get_safe_redirect_url, validate_next_path
++
++
++class GenericOauthInitiateSpaceEndpoint(View):
++    def get(self, request):
++        # Get host and next path
++        request.session["host"] = base_host(request=request, is_space=True)
++        next_path = request.GET.get("next_path")
++
++        # Check instance configuration
++        instance = Instance.objects.first()
++        if instance is None or not instance.is_setup_done:
++            exc = AuthenticationException(
++                error_code=AUTHENTICATION_ERROR_CODES["INSTANCE_NOT_CONFIGURED"],
++                error_message="INSTANCE_NOT_CONFIGURED",
++            )
++            params = exc.get_error_dict()
++            url = get_safe_redirect_url(
++                base_url=base_host(request=request, is_space=True), next_path=next_path, params=params
++            )
++            return HttpResponseRedirect(url)
++
++        try:
++            state = uuid.uuid4().hex
++            provider = GenericOAuthProvider(request=request, state=state)
++            request.session["state"] = state
++            auth_url = provider.get_auth_url()
++            return HttpResponseRedirect(auth_url)
++        except AuthenticationException as e:
++            params = e.get_error_dict()
++            url = get_safe_redirect_url(
++                base_url=base_host(request=request, is_space=True), next_path=next_path, params=params
++            )
++            return HttpResponseRedirect(url)
++
++
++class GenericOauthCallbackSpaceEndpoint(View):
++    def get(self, request):
++        code = request.GET.get("code")
++        state = request.GET.get("state")
++        base_host = request.session.get("host")
++        next_path = request.session.get("next_path")
++
++        if state != request.session.get("state", ""):
++            exc = AuthenticationException(
++                error_code=AUTHENTICATION_ERROR_CODES["OAUTH_PROVIDER_ERROR"],
++                error_message="OAUTH_PROVIDER_ERROR",
++            )
++            params = exc.get_error_dict()
++            url = get_safe_redirect_url(
++                base_url=base_host(request=request, is_space=True), next_path=next_path, params=params
++            )
++            return HttpResponseRedirect(url)
++
++        if not code:
++            exc = AuthenticationException(
++                error_code=AUTHENTICATION_ERROR_CODES["OAUTH_PROVIDER_ERROR"],
++                error_message="OAUTH_PROVIDER_ERROR",
++            )
++            params = exc.get_error_dict()
++            url = get_safe_redirect_url(
++                base_url=base_host(request=request, is_space=True), next_path=next_path, params=params
++            )
++            return HttpResponseRedirect(url)
++
++        try:
++            provider = GenericOAuthProvider(request=request, code=code)
++            user = provider.authenticate()
++            # Login the user and record his device info
++            user_login(request=request, user=user, is_space=True)
++            # Process workspace and project invitations
++            # redirect to referer path
++            next_path = validate_next_path(next_path=next_path)
++
++            url = f"{base_host(request=request, is_space=True).rstrip('/')}{next_path}"
++            if url_has_allowed_host_and_scheme(url, allowed_hosts=get_allowed_hosts()):
++                return HttpResponseRedirect(url)
++            else:
++                return HttpResponseRedirect(base_host(request=request, is_space=True))
++        except AuthenticationException as e:
++            params = e.get_error_dict()
++            url = get_safe_redirect_url(
++                base_url=base_host(request=request, is_space=True), next_path=next_path, params=params
++            )
++            return HttpResponseRedirect(url)
+diff --git a/apps/api/plane/db/migrations/0123_alter_account_provider_and_more.py b/apps/api/plane/db/migrations/0123_alter_account_provider_and_more.py
+new file mode 100644
+index 0000000000..d7f61323d1
+--- /dev/null
++++ b/apps/api/plane/db/migrations/0123_alter_account_provider_and_more.py
+@@ -0,0 +1,41 @@
++# Copyright (c) 2023-present Plane Software, Inc. and contributors
++# SPDX-License-Identifier: AGPL-3.0-only
++# See the LICENSE file for details.
++
++from django.db import migrations, models
++
++
++class Migration(migrations.Migration):
++    dependencies = [
++        ("db", "0122_alter_draftissue_assignees_alter_issue_assignees_and_more"),
++    ]
++
++    operations = [
++        migrations.AlterField(
++            model_name="account",
++            name="provider",
++            field=models.CharField(
++                choices=[
++                    ("google", "Google"),
++                    ("github", "Github"),
++                    ("gitlab", "GitLab"),
++                    ("oauth", "OAuth"),
++                ]
++            ),
++        ),
++        migrations.AlterField(
++            model_name="socialloginconnection",
++            name="medium",
++            field=models.CharField(
++                choices=[
++                    ("Google", "google"),
++                    ("Github", "github"),
++                    ("GitLab", "gitlab"),
++                    ("OAuth", "oauth"),
++                    ("Jira", "jira"),
++                ],
++                default=None,
++                max_length=20,
++            ),
++        ),
++    ]
+diff --git a/apps/api/plane/db/models/social_connection.py b/apps/api/plane/db/models/social_connection.py
+index 7e8ee8c2ca..3838c8ae6b 100644
+--- a/apps/api/plane/db/models/social_connection.py
++++ b/apps/api/plane/db/models/social_connection.py
+@@ -18,6 +18,7 @@ class SocialLoginConnection(BaseModel):
+             ("Google", "google"),
+             ("Github", "github"),
+             ("GitLab", "gitlab"),
++            ("OAuth", "oauth"),
+             ("Jira", "jira"),
+         ),
+         default=None,
+diff --git a/apps/api/plane/db/models/user.py b/apps/api/plane/db/models/user.py
+index 7f1ab162da..fe6759fe67 100644
+--- a/apps/api/plane/db/models/user.py
++++ b/apps/api/plane/db/models/user.py
+@@ -273,6 +273,7 @@ class Account(TimeAuditModel):
+         ("google", "Google"),
+         ("github", "Github"),
+         ("gitlab", "GitLab"),
++        ("oauth", "OAuth"),
+     )
+ 
+     id = models.UUIDField(default=uuid.uuid4, unique=True, editable=False, db_index=True, primary_key=True)
+diff --git a/apps/api/plane/license/api/views/instance.py b/apps/api/plane/license/api/views/instance.py
+index 29c2521abd..8693b451ee 100644
+--- a/apps/api/plane/license/api/views/instance.py
++++ b/apps/api/plane/license/api/views/instance.py
+@@ -55,6 +55,8 @@ class InstanceEndpoint(BaseAPIView):
+             GITHUB_APP_NAME,
+             IS_GITLAB_ENABLED,
+             IS_GITEA_ENABLED,
++            IS_OAUTH_ENABLED,
++            OAUTH_PROVIDER_NAME,
+             EMAIL_HOST,
+             ENABLE_MAGIC_LINK_LOGIN,
+             ENABLE_EMAIL_PASSWORD,
+@@ -93,6 +95,14 @@ class InstanceEndpoint(BaseAPIView):
+                     "key": "IS_GITEA_ENABLED",
+                     "default": os.environ.get("IS_GITEA_ENABLED", "0"),
+                 },
++                {
++                    "key": "IS_OAUTH_ENABLED",
++                    "default": os.environ.get("IS_OAUTH_ENABLED", "0"),
++                },
++                {
++                    "key": "OAUTH_PROVIDER_NAME",
++                    "default": os.environ.get("OAUTH_PROVIDER_NAME", "OAuth"),
++                },
+                 {"key": "EMAIL_HOST", "default": os.environ.get("EMAIL_HOST", "")},
+                 {
+                     "key": "ENABLE_MAGIC_LINK_LOGIN",
+@@ -133,6 +143,8 @@ class InstanceEndpoint(BaseAPIView):
+         data["is_github_enabled"] = IS_GITHUB_ENABLED == "1"
+         data["is_gitlab_enabled"] = IS_GITLAB_ENABLED == "1"
+         data["is_gitea_enabled"] = IS_GITEA_ENABLED == "1"
++        data["is_oauth_enabled"] = IS_OAUTH_ENABLED == "1"
++        data["oauth_provider_name"] = OAUTH_PROVIDER_NAME or "OAuth"
+         data["is_magic_login_enabled"] = ENABLE_MAGIC_LINK_LOGIN == "1"
+         data["is_email_password_enabled"] = ENABLE_EMAIL_PASSWORD == "1"
+ 
+diff --git a/apps/api/plane/tests/unit/auth/test_generic_oauth.py b/apps/api/plane/tests/unit/auth/test_generic_oauth.py
+new file mode 100644
+index 0000000000..d52313b2d7
+--- /dev/null
++++ b/apps/api/plane/tests/unit/auth/test_generic_oauth.py
+@@ -0,0 +1,276 @@
++# Copyright (c) 2023-present Plane Software, Inc. and contributors
++# SPDX-License-Identifier: AGPL-3.0-only
++# See the LICENSE file for details.
++
++"""
++Unit tests for the generic OAuth provider (plane.authentication.provider.oauth.oauth).
++
++The provider lets an instance administrator connect any OAuth2 authorization-code
++provider by configuring the authorize/token/userinfo endpoints, the scope and the
++JSON field mappings for the user attributes.
++"""
++
++from unittest.mock import MagicMock, patch
++
++import pytest
++
++from plane.authentication.adapter.error import (
++    AUTHENTICATION_ERROR_CODES,
++    AuthenticationException,
++)
++from plane.authentication.provider.oauth.oauth import GenericOAuthProvider, get_nested_value
++
++# Default config resolved by get_configuration_value (order matches provider __init__)
++DEFAULT_CONFIG = (
++    "client-id",  # OAUTH_CLIENT_ID
++    "client-secret",  # OAUTH_CLIENT_SECRET
++    "https://idp.example.com/authorize",  # OAUTH_AUTH_URL
++    "https://idp.example.com/token",  # OAUTH_TOKEN_URL
++    "https://idp.example.com/userinfo",  # OAUTH_USERINFO_URL
++    "openid email profile",  # OAUTH_SCOPE
++    "My IDP",  # OAUTH_PROVIDER_NAME
++    "sub",  # OAUTH_ID_FIELD
++    "email",  # OAUTH_EMAIL_FIELD
++    "",  # OAUTH_EMAIL_VERIFIED_FIELD
++    "given_name",  # OAUTH_FIRST_NAME_FIELD
++    "family_name",  # OAUTH_LAST_NAME_FIELD
++    "picture",  # OAUTH_AVATAR_FIELD
++    "0",  # OAUTH_ENABLE_EMAIL_VERIFICATION
++)
++
++
++def make_request():
++    request = MagicMock()
++    request.is_secure.return_value = True
++    request.get_host.return_value = "api.plane.example.com"
++    return request
++
++
++def make_provider(config=DEFAULT_CONFIG, code="auth-code", state="state-value"):
++    with patch("plane.authentication.provider.oauth.oauth.get_configuration_value", return_value=config):
++        return GenericOAuthProvider(request=make_request(), code=code, state=state)
++
++
++@pytest.mark.unit
++class TestGetNestedValue:
++    """Test the dotted-path JSON resolver."""
++
++    def test_returns_value_for_top_level_key(self):
++        assert get_nested_value({"email": "a@b.c"}, "email") == "a@b.c"
++
++    def test_returns_value_for_nested_key(self):
++        assert get_nested_value({"user": {"email": "a@b.c"}}, "user.email") == "a@b.c"
++
++    def test_returns_none_for_missing_path(self):
++        assert get_nested_value({"user": {"name": "x"}}, "user.email") is None
++
++    def test_returns_none_for_non_dict_intermediate(self):
++        assert get_nested_value({"user": "not-a-dict"}, "user.email") is None
++
++    def test_returns_none_for_empty_path(self):
++        assert get_nested_value({"email": "a@b.c"}, "") is None
++
++
++@pytest.mark.unit
++class TestGenericOAuthProviderConfiguration:
++    """Test configuration loading and auth URL generation."""
++
++    def test_raises_oauth_not_configured_when_client_id_missing(self):
++        config = list(DEFAULT_CONFIG)
++        config[0] = None
++        with pytest.raises(AuthenticationException) as exc_info:
++            make_provider(config=tuple(config))
++        assert exc_info.value.error_code == AUTHENTICATION_ERROR_CODES["OAUTH_NOT_CONFIGURED"]
++
++    def test_raises_oauth_not_configured_when_endpoint_missing(self):
++        config = list(DEFAULT_CONFIG)
++        config[3] = None  # OAUTH_TOKEN_URL
++        with pytest.raises(AuthenticationException) as exc_info:
++            make_provider(config=tuple(config))
++        assert exc_info.value.error_code == AUTHENTICATION_ERROR_CODES["OAUTH_NOT_CONFIGURED"]
++
++    def test_builds_auth_url_with_params(self):
++        provider = make_provider(state="abc123")
++        assert provider.get_auth_url() == (
++            "https://idp.example.com/authorize?client_id=client-id"
++            "&redirect_uri=https%3A%2F%2Fapi.plane.example.com%2Fauth%2Foauth%2Fcallback%2F"
++            "&response_type=code&scope=openid+email+profile&state=abc123"
++        )
++
++    def test_appends_to_existing_query_string(self):
++        config = list(DEFAULT_CONFIG)
++        config[2] = "https://idp.example.com/authorize?tenant=acme"
++        provider = make_provider(config=tuple(config), state="abc123")
++        assert "https://idp.example.com/authorize?tenant=acme&client_id=client-id" in provider.get_auth_url()
++
++    def test_uses_configured_scope(self):
++        config = list(DEFAULT_CONFIG)
++        config[5] = "email"
++        provider = make_provider(config=tuple(config))
++        assert "scope=email" in provider.get_auth_url()
++
++    def test_provider_name_falls_back_to_oauth(self):
++        config = list(DEFAULT_CONFIG)
++        config[6] = None
++        provider = make_provider(config=tuple(config))
++        assert provider.provider_name == "OAuth"
++
++
++@pytest.mark.unit
++class TestGenericOAuthProviderToken:
++    """Test token exchange."""
++
++    def test_sets_token_data_from_response(self, mocker):
++        provider = make_provider()
++        token_response = {
++            "access_token": "access-123",
++            "refresh_token": "refresh-123",
++            "expires_in": 3600,
++            "id_token": "id-token",
++        }
++        mocker.patch.object(provider, "get_user_token", return_value=token_response)
++
++        provider.set_token_data()
++
++        assert provider.token_data["access_token"] == "access-123"
++        assert provider.token_data["refresh_token"] == "refresh-123"
++        assert provider.token_data["access_token_expired_at"] is not None
++        assert provider.token_data["id_token"] == "id-token"
++
++    def test_token_exchange_sends_client_credentials(self, mocker):
++        provider = make_provider(code="the-code")
++        token_response = {"access_token": "access-123"}
++        get_user_token = mocker.patch.object(provider, "get_user_token", return_value=token_response)
++
++        provider.set_token_data()
++
++        data = get_user_token.call_args.kwargs["data"]
++        assert data["client_id"] == "client-id"
++        assert data["client_secret"] == "client-secret"
++        assert data["code"] == "the-code"
++        assert data["grant_type"] == "authorization_code"
++        assert data["redirect_uri"] == "https://api.plane.example.com/auth/oauth/callback/"
++
++
++@pytest.mark.unit
++class TestGenericOAuthProviderUserData:
++    """Test userinfo mapping."""
++
++    def test_maps_flat_userinfo(self, mocker):
++        provider = make_provider()
++        mocker.patch.object(
++            provider,
++            "get_user_response",
++            return_value={
++                "sub": "user-1",
++                "email": "john@example.com",
++                "given_name": "John",
++                "family_name": "Doe",
++                "picture": "https://idp.example.com/avatar.png",
++            },
++        )
++
++        provider.set_user_data()
++
++        assert provider.user_data["email"] == "john@example.com"
++        user = provider.user_data["user"]
++        assert user["provider_id"] == "user-1"
++        assert user["email"] == "john@example.com"
++        assert user["first_name"] == "John"
++        assert user["last_name"] == "Doe"
++        assert user["avatar"] == "https://idp.example.com/avatar.png"
++        assert user["is_password_autoset"] is True
++
++    def test_maps_nested_userinfo(self, mocker):
++        config = list(DEFAULT_CONFIG)
++        config[7] = "user.sub"
++        config[8] = "user.email"
++        config[10] = "user.given_name"
++        config[11] = "user.family_name"
++        config[12] = "user.picture"
++        provider = make_provider(config=tuple(config))
++        mocker.patch.object(
++            provider,
++            "get_user_response",
++            return_value={
++                "user": {
++                    "sub": "nested-1",
++                    "email": "nested@example.com",
++                    "given_name": "Jane",
++                    "family_name": "Smith",
++                }
++            },
++        )
++
++        provider.set_user_data()
++
++        assert provider.user_data["email"] == "nested@example.com"
++        assert provider.user_data["user"]["provider_id"] == "nested-1"
++        assert provider.user_data["user"]["first_name"] == "Jane"
++
++    def test_raises_when_email_missing(self, mocker):
++        provider = make_provider()
++        mocker.patch.object(provider, "get_user_response", return_value={"sub": "user-1"})
++
++        with pytest.raises(AuthenticationException) as exc_info:
++            provider.set_user_data()
++        assert exc_info.value.error_code == AUTHENTICATION_ERROR_CODES["INVALID_EMAIL"]
++
++    def test_raises_when_provider_id_missing(self, mocker):
++        provider = make_provider()
++        mocker.patch.object(
++            provider,
++            "get_user_response",
++            return_value={"email": "john@example.com"},
++        )
++
++        with pytest.raises(AuthenticationException) as exc_info:
++            provider.set_user_data()
++        assert exc_info.value.error_code == AUTHENTICATION_ERROR_CODES["OAUTH_PROVIDER_ERROR"]
++
++
++@pytest.mark.unit
++class TestGenericOAuthProviderEmailVerification:
++    """Test optional verified-email enforcement."""
++
++    def make_verification_provider(self, verified_field, enabled):
++        config = list(DEFAULT_CONFIG)
++        config[9] = verified_field  # OAUTH_EMAIL_VERIFIED_FIELD
++        config[13] = enabled  # OAUTH_ENABLE_EMAIL_VERIFICATION
++        return make_provider(config=tuple(config))
++
++    def test_rejects_unverified_email_when_enabled(self, mocker):
++        provider = self.make_verification_provider("email_verified", "1")
++        mocker.patch.object(
++            provider,
++            "get_user_response",
++            return_value={"sub": "u", "email": "john@example.com", "email_verified": False},
++        )
++
++        with pytest.raises(AuthenticationException) as exc_info:
++            provider.set_user_data()
++        assert exc_info.value.error_code == AUTHENTICATION_ERROR_CODES["OAUTH_PROVIDER_UNVERIFIED_EMAIL"]
++
++    def test_accepts_verified_email_when_enabled(self, mocker):
++        provider = self.make_verification_provider("email_verified", "1")
++        mocker.patch.object(
++            provider,
++            "get_user_response",
++            return_value={"sub": "u", "email": "john@example.com", "email_verified": True},
++        )
++
++        provider.set_user_data()
++
++        assert provider.user_data["email"] == "john@example.com"
++
++    def test_accepts_unverified_email_when_enforcement_disabled(self, mocker):
++        provider = self.make_verification_provider("email_verified", "0")
++        mocker.patch.object(
++            provider,
++            "get_user_response",
++            return_value={"sub": "u", "email": "john@example.com", "email_verified": False},
++        )
++
++        provider.set_user_data()
++
++        assert provider.user_data["email"] == "john@example.com"
+diff --git a/apps/api/plane/utils/instance_config_variables/core.py b/apps/api/plane/utils/instance_config_variables/core.py
+index 6df27d2617..979c4aa5ce 100644
+--- a/apps/api/plane/utils/instance_config_variables/core.py
++++ b/apps/api/plane/utils/instance_config_variables/core.py
+@@ -162,6 +162,105 @@ gitea_config_variables = [
+     },
+ ]
+ 
++oauth_config_variables = [
++    {
++        "key": "IS_OAUTH_ENABLED",
++        "value": os.environ.get("IS_OAUTH_ENABLED", "0"),
++        "category": "OAUTH",
++        "is_encrypted": False,
++    },
++    {
++        "key": "OAUTH_PROVIDER_NAME",
++        "value": os.environ.get("OAUTH_PROVIDER_NAME", "OAuth"),
++        "category": "OAUTH",
++        "is_encrypted": False,
++    },
++    {
++        "key": "OAUTH_AUTH_URL",
++        "value": os.environ.get("OAUTH_AUTH_URL"),
++        "category": "OAUTH",
++        "is_encrypted": False,
++    },
++    {
++        "key": "OAUTH_TOKEN_URL",
++        "value": os.environ.get("OAUTH_TOKEN_URL"),
++        "category": "OAUTH",
++        "is_encrypted": False,
++    },
++    {
++        "key": "OAUTH_USERINFO_URL",
++        "value": os.environ.get("OAUTH_USERINFO_URL"),
++        "category": "OAUTH",
++        "is_encrypted": False,
++    },
++    {
++        "key": "OAUTH_SCOPE",
++        "value": os.environ.get("OAUTH_SCOPE", "openid email profile"),
++        "category": "OAUTH",
++        "is_encrypted": False,
++    },
++    {
++        "key": "OAUTH_CLIENT_ID",
++        "value": os.environ.get("OAUTH_CLIENT_ID"),
++        "category": "OAUTH",
++        "is_encrypted": False,
++    },
++    {
++        "key": "OAUTH_CLIENT_SECRET",
++        "value": os.environ.get("OAUTH_CLIENT_SECRET"),
++        "category": "OAUTH",
++        "is_encrypted": True,
++    },
++    {
++        "key": "OAUTH_ID_FIELD",
++        "value": os.environ.get("OAUTH_ID_FIELD", "sub"),
++        "category": "OAUTH",
++        "is_encrypted": False,
++    },
++    {
++        "key": "OAUTH_EMAIL_FIELD",
++        "value": os.environ.get("OAUTH_EMAIL_FIELD", "email"),
++        "category": "OAUTH",
++        "is_encrypted": False,
++    },
++    {
++        "key": "OAUTH_EMAIL_VERIFIED_FIELD",
++        "value": os.environ.get("OAUTH_EMAIL_VERIFIED_FIELD", ""),
++        "category": "OAUTH",
++        "is_encrypted": False,
++    },
++    {
++        "key": "OAUTH_FIRST_NAME_FIELD",
++        "value": os.environ.get("OAUTH_FIRST_NAME_FIELD", "given_name"),
++        "category": "OAUTH",
++        "is_encrypted": False,
++    },
++    {
++        "key": "OAUTH_LAST_NAME_FIELD",
++        "value": os.environ.get("OAUTH_LAST_NAME_FIELD", "family_name"),
++        "category": "OAUTH",
++        "is_encrypted": False,
++    },
++    {
++        "key": "OAUTH_AVATAR_FIELD",
++        "value": os.environ.get("OAUTH_AVATAR_FIELD", "picture"),
++        "category": "OAUTH",
++        "is_encrypted": False,
++    },
++    {
++        "key": "OAUTH_ENABLE_EMAIL_VERIFICATION",
++        "value": os.environ.get("OAUTH_ENABLE_EMAIL_VERIFICATION", "0"),
++        "category": "OAUTH",
++        "is_encrypted": False,
++    },
++    {
++        "key": "ENABLE_OAUTH_SYNC",
++        "value": os.environ.get("ENABLE_OAUTH_SYNC", "0"),
++        "category": "OAUTH",
++        "is_encrypted": False,
++    },
++]
++
+ smtp_config_variables = [
+     {
+         "key": "ENABLE_SMTP",
+@@ -257,6 +356,7 @@ core_config_variables = [
+     *github_config_variables,
+     *gitlab_config_variables,
+     *gitea_config_variables,
++    *oauth_config_variables,
+     *smtp_config_variables,
+     *llm_config_variables,
+     *unsplash_config_variables,
+diff --git a/apps/space/helpers/authentication.helper.tsx b/apps/space/helpers/authentication.helper.tsx
+index 6e11d61bd0..c995749bdd 100644
+--- a/apps/space/helpers/authentication.helper.tsx
++++ b/apps/space/helpers/authentication.helper.tsx
+@@ -65,6 +65,7 @@ export enum EAuthenticationErrorCodes {
+   GOOGLE_OAUTH_PROVIDER_ERROR = "5115",
+   GITHUB_OAUTH_PROVIDER_ERROR = "5120",
+   GITLAB_OAUTH_PROVIDER_ERROR = "5121",
++  OAUTH_PROVIDER_ERROR = "5129",
+   // Reset Password
+   INVALID_PASSWORD_TOKEN = "5125",
+   EXPIRED_PASSWORD_TOKEN = "5130",
+@@ -261,6 +262,10 @@ const errorCodeMessages: {
+     title: `GitLab OAuth provider error`,
+     message: () => `GitLab OAuth provider error. Please try again.`,
+   },
++  [EAuthenticationErrorCodes.OAUTH_PROVIDER_ERROR]: {
++    title: `OAuth provider error`,
++    message: () => `OAuth provider error. Please try again.`,
++  },
+ 
+   // Reset Password
+   [EAuthenticationErrorCodes.INVALID_PASSWORD_TOKEN]: {
+@@ -376,6 +381,7 @@ export const authErrorHandler = (errorCode: EAuthenticationErrorCodes, email?: s
+     EAuthenticationErrorCodes.GOOGLE_OAUTH_PROVIDER_ERROR,
+     EAuthenticationErrorCodes.GITHUB_OAUTH_PROVIDER_ERROR,
+     EAuthenticationErrorCodes.GITLAB_OAUTH_PROVIDER_ERROR,
++    EAuthenticationErrorCodes.OAUTH_PROVIDER_ERROR,
+     EAuthenticationErrorCodes.INVALID_PASSWORD_TOKEN,
+     EAuthenticationErrorCodes.EXPIRED_PASSWORD_TOKEN,
+     EAuthenticationErrorCodes.INCORRECT_OLD_PASSWORD,
+diff --git a/apps/space/hooks/oauth/core.tsx b/apps/space/hooks/oauth/core.tsx
+index 63a18cc2e5..1ed6878054 100644
+--- a/apps/space/hooks/oauth/core.tsx
++++ b/apps/space/hooks/oauth/core.tsx
+@@ -7,6 +7,7 @@
+ // plane imports
+ import { useSearchParams } from "next/navigation";
+ import { useTheme } from "next-themes";
++import { KeyRound } from "lucide-react";
+ import { API_BASE_URL } from "@plane/constants";
+ import type { TOAuthConfigs, TOAuthOption } from "@plane/types";
+ // assets
+@@ -33,8 +34,10 @@ export const useCoreOAuthConfig = (oauthActionText: string): TOAuthConfigs => {
+       (config?.is_google_enabled ||
+         config?.is_github_enabled ||
+         config?.is_gitlab_enabled ||
+-        config?.is_gitea_enabled)) ||
++        config?.is_gitea_enabled ||
++        config?.is_oauth_enabled)) ||
+     false;
++  const oauthProviderName = config?.oauth_provider_name || "OAuth";
+   const oAuthOptions: TOAuthOption[] = [
+     {
+       id: "google",
+@@ -79,6 +82,15 @@ export const useCoreOAuthConfig = (oauthActionText: string): TOAuthConfigs => {
+       },
+       enabled: config?.is_gitea_enabled,
+     },
++    {
++      id: "oauth",
++      text: `${oauthActionText} with ${oauthProviderName}`,
++      icon: <KeyRound className="h-4.5 w-4.5 text-tertiary" />,
++      onClick: () => {
++        window.location.assign(`${API_BASE_URL}/auth/oauth/${next_path ? `?next_path=${next_path}` : ``}`);
++      },
++      enabled: config?.is_oauth_enabled,
++    },
+   ];
+ 
+   return {
+diff --git a/apps/web/core/hooks/oauth/core.tsx b/apps/web/core/hooks/oauth/core.tsx
+index 1614883fe8..3605c1deff 100644
+--- a/apps/web/core/hooks/oauth/core.tsx
++++ b/apps/web/core/hooks/oauth/core.tsx
+@@ -7,6 +7,7 @@
+ // plane imports
+ import { useSearchParams } from "next/navigation";
+ import { useTheme } from "next-themes";
++import { KeyRound } from "lucide-react";
+ import { API_BASE_URL } from "@plane/constants";
+ import type { TOAuthConfigs, TOAuthOption } from "@plane/types";
+ // assets
+@@ -33,8 +34,10 @@ export const useCoreOAuthConfig = (oauthActionText: string): TOAuthConfigs => {
+       (config?.is_google_enabled ||
+         config?.is_github_enabled ||
+         config?.is_gitlab_enabled ||
+-        config?.is_gitea_enabled)) ||
++        config?.is_gitea_enabled ||
++        config?.is_oauth_enabled)) ||
+     false;
++  const oauthProviderName = config?.oauth_provider_name || "OAuth";
+   const oAuthOptions: TOAuthOption[] = [
+     {
+       id: "google",
+@@ -79,6 +82,15 @@ export const useCoreOAuthConfig = (oauthActionText: string): TOAuthConfigs => {
+       },
+       enabled: config?.is_gitea_enabled,
+     },
++    {
++      id: "oauth",
++      text: `${oauthActionText} with ${oauthProviderName}`,
++      icon: <KeyRound className="h-4.5 w-4.5 text-tertiary" />,
++      onClick: () => {
++        window.location.assign(`${API_BASE_URL}/auth/oauth/${next_path ? `?next_path=${next_path}` : ``}`);
++      },
++      enabled: config?.is_oauth_enabled,
++    },
+   ];
+ 
+   return {
+diff --git a/apps/web/helpers/authentication.helper.tsx b/apps/web/helpers/authentication.helper.tsx
+index 977f094062..df0b86970c 100644
+--- a/apps/web/helpers/authentication.helper.tsx
++++ b/apps/web/helpers/authentication.helper.tsx
+@@ -79,6 +79,7 @@ export enum EAuthenticationErrorCodes {
+   GOOGLE_OAUTH_PROVIDER_ERROR = "5115",
+   GITHUB_OAUTH_PROVIDER_ERROR = "5120",
+   GITLAB_OAUTH_PROVIDER_ERROR = "5121",
++  OAUTH_PROVIDER_ERROR = "5129",
+   // Reset Password
+   INVALID_PASSWORD_TOKEN = "5125",
+   EXPIRED_PASSWORD_TOKEN = "5130",
+@@ -287,6 +288,10 @@ const errorCodeMessages: {
+     title: `GitLab OAuth provider error`,
+     message: () => `GitLab OAuth provider error. Please try again.`,
+   },
++  [EAuthenticationErrorCodes.OAUTH_PROVIDER_ERROR]: {
++    title: `OAuth provider error`,
++    message: () => `OAuth provider error. Please try again.`,
++  },
+ 
+   // Reset Password
+   [EAuthenticationErrorCodes.INVALID_PASSWORD_TOKEN]: {
+@@ -414,6 +419,7 @@ export const authErrorHandler = (errorCode: EAuthenticationErrorCodes, email?: s
+     EAuthenticationErrorCodes.GOOGLE_OAUTH_PROVIDER_ERROR,
+     EAuthenticationErrorCodes.GITHUB_OAUTH_PROVIDER_ERROR,
+     EAuthenticationErrorCodes.GITLAB_OAUTH_PROVIDER_ERROR,
++    EAuthenticationErrorCodes.OAUTH_PROVIDER_ERROR,
+     EAuthenticationErrorCodes.INVALID_PASSWORD_TOKEN,
+     EAuthenticationErrorCodes.EXPIRED_PASSWORD_TOKEN,
+     EAuthenticationErrorCodes.INCORRECT_OLD_PASSWORD,
+diff --git a/packages/constants/src/auth/core.ts b/packages/constants/src/auth/core.ts
+index a6a26c69f3..c2cf5621ab 100644
+--- a/packages/constants/src/auth/core.ts
++++ b/packages/constants/src/auth/core.ts
+@@ -13,4 +13,5 @@ export const CORE_LOGIN_MEDIUM_LABELS: Record<TCoreLoginMediums, string> = {
+   gitlab: "GitLab",
+   google: "Google",
+   gitea: "Gitea",
++  oauth: "OAuth",
+ };
+diff --git a/packages/constants/src/auth/index.ts b/packages/constants/src/auth/index.ts
+index 9d29181f0b..095c18b9c9 100644
+--- a/packages/constants/src/auth/index.ts
++++ b/packages/constants/src/auth/index.ts
+@@ -146,6 +146,7 @@ export enum EAuthErrorCodes {
+   GOOGLE_OAUTH_PROVIDER_ERROR = "5115",
+   GITHUB_OAUTH_PROVIDER_ERROR = "5120",
+   GITLAB_OAUTH_PROVIDER_ERROR = "5121",
++  OAUTH_PROVIDER_ERROR = "5129",
+   // Reset Password
+   INVALID_PASSWORD_TOKEN = "5125",
+   EXPIRED_PASSWORD_TOKEN = "5130",
+diff --git a/packages/types/src/instance/auth.ts b/packages/types/src/instance/auth.ts
+index f3566b291f..f1b4b61bcf 100644
+--- a/packages/types/src/instance/auth.ts
++++ b/packages/types/src/instance/auth.ts
+@@ -10,7 +10,8 @@ export type TCoreInstanceAuthenticationModeKeys =
+   | "google"
+   | "github"
+   | "gitlab"
+-  | "gitea";
++  | "gitea"
++  | "oauth";
+ 
+ export type TInstanceAuthenticationModeKeys = TCoreInstanceAuthenticationModeKeys;
+ 
+@@ -31,7 +32,8 @@ export type TInstanceAuthenticationMethodKeys =
+   | "IS_GOOGLE_ENABLED"
+   | "IS_GITHUB_ENABLED"
+   | "IS_GITLAB_ENABLED"
+-  | "IS_GITEA_ENABLED";
++  | "IS_GITEA_ENABLED"
++  | "IS_OAUTH_ENABLED";
+ 
+ export type TInstanceGoogleAuthenticationConfigurationKeys =
+   | "GOOGLE_CLIENT_ID"
+@@ -56,11 +58,29 @@ export type TInstanceGiteaAuthenticationConfigurationKeys =
+   | "GITEA_CLIENT_SECRET"
+   | "ENABLE_GITEA_SYNC";
+ 
++export type TInstanceOauthAuthenticationConfigurationKeys =
++  | "OAUTH_PROVIDER_NAME"
++  | "OAUTH_AUTH_URL"
++  | "OAUTH_TOKEN_URL"
++  | "OAUTH_USERINFO_URL"
++  | "OAUTH_SCOPE"
++  | "OAUTH_CLIENT_ID"
++  | "OAUTH_CLIENT_SECRET"
++  | "OAUTH_ID_FIELD"
++  | "OAUTH_EMAIL_FIELD"
++  | "OAUTH_EMAIL_VERIFIED_FIELD"
++  | "OAUTH_FIRST_NAME_FIELD"
++  | "OAUTH_LAST_NAME_FIELD"
++  | "OAUTH_AVATAR_FIELD"
++  | "OAUTH_ENABLE_EMAIL_VERIFICATION"
++  | "ENABLE_OAUTH_SYNC";
++
+ export type TInstanceAuthenticationConfigurationKeys =
+   | TInstanceGoogleAuthenticationConfigurationKeys
+   | TInstanceGithubAuthenticationConfigurationKeys
+   | TInstanceGitlabAuthenticationConfigurationKeys
+-  | TInstanceGiteaAuthenticationConfigurationKeys;
++  | TInstanceGiteaAuthenticationConfigurationKeys
++  | TInstanceOauthAuthenticationConfigurationKeys;
+ 
+ export type TInstanceAuthenticationKeys = TInstanceAuthenticationMethodKeys | TInstanceAuthenticationConfigurationKeys;
+ 
+@@ -83,4 +103,4 @@ export type TOAuthConfigs = {
+   oAuthOptions: TOAuthOption[];
+ };
+ 
+-export type TCoreLoginMediums = "email" | "magic-code" | "github" | "gitlab" | "google" | "gitea";
++export type TCoreLoginMediums = "email" | "magic-code" | "github" | "gitlab" | "google" | "gitea" | "oauth";
+diff --git a/packages/types/src/instance/base.ts b/packages/types/src/instance/base.ts
+index a93baef524..0fc85d59ba 100644
+--- a/packages/types/src/instance/base.ts
++++ b/packages/types/src/instance/base.ts
+@@ -51,6 +51,8 @@ export interface IInstanceConfig {
+   is_github_enabled: boolean;
+   is_gitlab_enabled: boolean;
+   is_gitea_enabled: boolean;
++  is_oauth_enabled: boolean;
++  oauth_provider_name: string | undefined;
+   is_magic_login_enabled: boolean;
+   is_email_password_enabled: boolean;
+   github_app_name: string | undefined;
+diff --git a/packages/utils/src/auth.ts b/packages/utils/src/auth.ts
+index cd0646af01..853aac612d 100644
+--- a/packages/utils/src/auth.ts
++++ b/packages/utils/src/auth.ts
+@@ -228,6 +228,10 @@ const errorCodeMessages: {
+     title: `GitLab OAuth provider error`,
+     message: () => `GitLab OAuth provider error. Please try again.`,
+   },
++  [EAuthErrorCodes.OAUTH_PROVIDER_ERROR]: {
++    title: `OAuth provider error`,
++    message: () => `OAuth provider error. Please try again.`,
++  },
+   // Reset Password
+   [EAuthErrorCodes.INVALID_PASSWORD_TOKEN]: {
+     title: `Invalid password token`,
+@@ -340,6 +344,7 @@ export const authErrorHandler = (errorCode: EAuthErrorCodes, email?: string): TA
+     EAuthErrorCodes.GOOGLE_OAUTH_PROVIDER_ERROR,
+     EAuthErrorCodes.GITHUB_OAUTH_PROVIDER_ERROR,
+     EAuthErrorCodes.GITLAB_OAUTH_PROVIDER_ERROR,
++    EAuthErrorCodes.OAUTH_PROVIDER_ERROR,
+     EAuthErrorCodes.INVALID_PASSWORD_TOKEN,
+     EAuthErrorCodes.EXPIRED_PASSWORD_TOKEN,
+     EAuthErrorCodes.INCORRECT_OLD_PASSWORD,
