@@ -51,6 +51,7 @@ jobs:
           platforms: linux/amd64,linux/arm64
           build-args: |
             DOCKER_BUILDKIT=1
+            NODE_VERSION=24.18.0
           push: true
           tags: ahmgam/plane-web:${{ github.event.inputs.version }}
 
@@ -63,6 +64,7 @@ jobs:
           platforms: linux/amd64,linux/arm64
           build-args: |
             DOCKER_BUILDKIT=1
+            NODE_VERSION=24.18.0
           push: true
           tags: ahmgam/plane-admin:${{ github.event.inputs.version }}
 
@@ -75,6 +77,7 @@ jobs:
           platforms: linux/amd64,linux/arm64
           build-args: |
             DOCKER_BUILDKIT=1
+            NODE_VERSION=24.18.0
           push: true
           tags: ahmgam/plane-space:${{ github.event.inputs.version }}
 
@@ -87,6 +90,7 @@ jobs:
           platforms: linux/amd64,linux/arm64
           build-args: |
             DOCKER_BUILDKIT=1
+            NODE_VERSION=24.18.0
           push: true
           tags: ahmgam/plane-api:${{ github.event.inputs.version }}
 
@@ -100,5 +104,6 @@ jobs:
           platforms: linux/amd64,linux/arm64
           build-args: |
             DOCKER_BUILDKIT=1
+            NODE_VERSION=24.18.0
           push: true
           tags: ahmgam/plane-live:${{ github.event.inputs.version }}
