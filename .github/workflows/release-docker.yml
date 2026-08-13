@@ -49,6 +49,8 @@ jobs:
           context: ./plane
           file: ./apps/web/Dockerfile.web
           platforms: linux/amd64,linux/arm64
+          build-args: |
+            DOCKER_BUILDKIT=1
           push: true
           tags: ahmgam/plane-web:${{ github.event.inputs.version }}
 
@@ -59,6 +61,8 @@ jobs:
           context: ./plane
           file: ./apps/admin/Dockerfile.admin
           platforms: linux/amd64,linux/arm64
+          build-args: |
+            DOCKER_BUILDKIT=1
           push: true
           tags: ahmgam/plane-admin:${{ github.event.inputs.version }}
 
@@ -69,6 +73,8 @@ jobs:
           context: ./plane
           file: ./apps/space/Dockerfile.space
           platforms: linux/amd64,linux/arm64
+          build-args: |
+            DOCKER_BUILDKIT=1
           push: true
           tags: ahmgam/plane-space:${{ github.event.inputs.version }}
 
@@ -79,6 +85,8 @@ jobs:
           context: ./plane/apps/api
           file: Dockerfile.api
           platforms: linux/amd64,linux/arm64
+          build-args: |
+            DOCKER_BUILDKIT=1
           push: true
           tags: ahmgam/plane-api:${{ github.event.inputs.version }}
 
@@ -90,5 +98,7 @@ jobs:
           context: ./plane
           file: ./apps/live/Dockerfile.live
           platforms: linux/amd64,linux/arm64
+          build-args: |
+            DOCKER_BUILDKIT=1
           push: true
           tags: ahmgam/plane-live:${{ github.event.inputs.version }}
