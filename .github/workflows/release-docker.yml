@@ -47,7 +47,7 @@ jobs:
         uses: useblacksmith/build-push-action@30c71162f16ea2c27c3e21523255d209b8b538c1 # v2
         with:
           context: ./plane
-          file: ./apps/web/Dockerfile.web
+          file: ./plane/apps/web/Dockerfile.web
           platforms: linux/amd64,linux/arm64
           build-args: |
             DOCKER_BUILDKIT=1
@@ -60,7 +60,7 @@ jobs:
         uses: useblacksmith/build-push-action@30c71162f16ea2c27c3e21523255d209b8b538c1 # v2
         with:
           context: ./plane
-          file: ./apps/admin/Dockerfile.admin
+          file: ./plane/apps/admin/Dockerfile.admin
           platforms: linux/amd64,linux/arm64
           build-args: |
             DOCKER_BUILDKIT=1
@@ -73,7 +73,7 @@ jobs:
         uses: useblacksmith/build-push-action@30c71162f16ea2c27c3e21523255d209b8b538c1 # v2
         with:
           context: ./plane
-          file: ./apps/space/Dockerfile.space
+          file: ./plane/apps/space/Dockerfile.space
           platforms: linux/amd64,linux/arm64
           build-args: |
             DOCKER_BUILDKIT=1
@@ -85,8 +85,8 @@ jobs:
         id: build-plane-api
         uses: useblacksmith/build-push-action@30c71162f16ea2c27c3e21523255d209b8b538c1 # v2
         with:
-          context: ./plane/apps/api
-          file: Dockerfile.api
+          context: ./plane
+          file: ./plane/apps/api/Dockerfile.api
           platforms: linux/amd64,linux/arm64
           build-args: |
             DOCKER_BUILDKIT=1
@@ -100,7 +100,7 @@ jobs:
         uses: useblacksmith/build-push-action@30c71162f16ea2c27c3e21523255d209b8b538c1 # v2
         with:
           context: ./plane
-          file: ./apps/live/Dockerfile.live
+          file: ./plane/apps/live/Dockerfile.live
           platforms: linux/amd64,linux/arm64
           build-args: |
             DOCKER_BUILDKIT=1
